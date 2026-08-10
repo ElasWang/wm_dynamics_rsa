@@ -1,0 +1,11 @@
+name: wm-dynamics-rsa
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - mne=1.7.0
+  - numpy=1.26.0
+  - pip
+  - pip:
+    - -r requirements.txt

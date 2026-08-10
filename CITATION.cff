@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "王"
+    given-names: "丽媛"
+    email: "ElasWangLY@163.com
+title: "WM Dynamics RSA: A Pipeline for Time-Resolved Representational Similarity Analysis"
+version: 1.0.0
+date-released: 2026-07-28
+url: "你的GitHub仓库地址"

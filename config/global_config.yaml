@@ -1,0 +1,54 @@
+# config/global.yaml
+# 项目全局配置文件（修改此文件无需改动任何 .py 代码）
+
+project:
+  name: "WM Dynamics RSA"
+  version: "1.0.0"
+
+# 数据路径
+paths:
+  bids_root: "./data/raw"
+  deriv_root: "./data/derivatives"
+  visual_similarity_root: "./data/visual_similarity"
+  model_rdm_root: "./result/rdms/model"
+  neural_rdm_root: "./result/rdms/neural"
+
+# eeg数据预处理参数
+preprocessing:
+  resample_sfreq: 250        # 统一采样率 (Hz)
+  filter_low: 0.5            # 高通截止频率 (Hz)
+  filter_high: 40.0          # 低通截止频率 (Hz)
+  ica_n_components: 30       # ICA 分解成分数
+  eog_threshold: 2.5         # 眼电成分检测阈值
+  epoch_tmin: -0.2           # 刺激前基线起始 (秒)
+  epoch_tmax: 0.8            # 刺激后结束 (秒)
+
+# RSA 分析参数
+rsa:
+  # 时间窗口参数
+  temporal_window: 0.10        # 窗口宽度 (秒)
+  temporal_step: 0.02          # 滑动步长 (秒)
+  spatial_radius: 0.04         # Searchlight 半径 (米)
+
+  # 距离度量选择
+  neural_metric: "correlation" # 神经RDM距离 (correlation / euclidean)
+
+  statistics:
+    # 置换检验配置
+    n_permutations: 1000       # 打乱基线的置换次数（调试时可改为 100）
+    random_state: 42           # 固定随机种子，确保结果可复现
+
+    # 聚类置换检验
+    cluster_threshold: 2.0     # 聚类形成的 t 值阈值
+    cluster_alpha: 0.05        # 显著性水平
+
+    # 质量控制
+    reliability_threshold: 0.5 # 拆分半信度最低阈值（低于此值丢弃时间窗）
+    max_dropout_rate: 0.25     # 最大允许的试次剔除率
+
+# RNN 建模参数
+rnn:
+  hidden_size: 64
+  learning_rate: 0.001
+  n_epochs: 200
+  batch_size: 32
