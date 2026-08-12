@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 import logging
 from config import CONFIG
-from src.shared_utils.preprocess_util import process_subject
+from src.pipeline1_empirical_rsa.core.preprocess_engine import process_subject
 import sys
 import argparse
 

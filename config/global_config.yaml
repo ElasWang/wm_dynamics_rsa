@@ -12,7 +12,8 @@ paths:
   visual_similarity_root: "./data/visual_similarity"
   model_rdm_root: "./result/rdms/model"
   neural_rdm_root: "./result/rdms/neural"
-
+  null_distributions: "./result/rdms/null_distributions"
+  null_dir : "./result/rdms/null_dir"
 # eeg数据预处理参数
 preprocessing:
   resample_sfreq: 250        # 统一采样率 (Hz)
@@ -52,3 +53,28 @@ rnn:
   learning_rate: 0.001
   n_epochs: 200
   batch_size: 32
+
+# 模型5：参数化颜色-位置权衡模型
+parametric_color_position:
+  # 绿色干扰项的“神经保留权重”扫描范围
+  # 0.0 = 完全抑制（绿色被彻底抹除）
+  # 0.5 = 标签化（保留存在感，剥夺位置权）
+  # 1.0 = 完全保留（无视颜色标签）
+  green_retention_weights: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+# 模型8：动态加权混合模型
+structure_content_mixture:
+  # 结构权重 α：
+  # 0.0 = 纯内容（只看字母是什么）
+  # 0.5 = 均衡（结构与内容同等重要）
+  # 1.0 = 纯结构（只看位置在哪里）
+  structure_weights: [0.0, 0.3, 0.5, 0.7, 1.0]
+  # 干扰项坍缩程度 λ：控制绿色字母的身份信息被保留多少
+  # 0.0 = 绿色完全保留字母身份（等于无视颜色）
+  # 0.5 = 绿色部分坍缩（既有身份痕迹，又有干扰标签）
+  # 1.0 = 绿色完全坍缩为干扰项（纯标签）
+  distractor_collapse_levels: [0.0, 0.5, 1.0]
+# 模型6：组块模型
+chunk_pattern:
+  # 黑色字母分组规则
+  pattern: [2, 2, 3, 3]
