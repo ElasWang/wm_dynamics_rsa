@@ -72,17 +72,19 @@ def build_boundary_model(metadata: pd.DataFrame) -> np.ndarray:
     M3: 边界强化模型
     -每个试次的首尾位置标记为1，其余为0。
     """
-    positions = metadata['position'].copy()
-    feat = np.zeros(len(positions))
-    trial_ids = (positions == 1).cumsum()
-    for tid in range(1, trial_ids.max() + 1):
-        idx = np.where(trial_ids == tid)[0]
-        if len(idx) > 0:
-            feat[idx[0]] = 1
-            feat[idx[-1]] = 1
-
+    df = metadata.sort_values(['run', 'trial', 'onset']).copy()
+    n = len(df)
+    feat = np.zeros(n, dtype=float)
+    for _, group in df.groupby(['run', 'trial']):
+        pos = group['position'].values
+        idx = group.index
+        if len(pos) == 0:
+            continue
+        min_pos = pos.min()
+        max_pos = pos.max()
+        mask = (pos == min_pos) | (pos == max_pos)
+        feat[idx[mask]] = 1.0
     return _features_to_rdm(feat.reshape(-1, 1), metric='euclidean')
-
 
 def build_gradient_model(metadata: pd.DataFrame) -> np.ndarray:
     """
@@ -92,16 +94,17 @@ def build_gradient_model(metadata: pd.DataFrame) -> np.ndarray:
     - 位置 N → 1（结尾，N 为该试次总字母数）
     - 中间位置线性插值
     """
-    positions = metadata['position'].copy()
-    feat = np.zeros(len(positions), dtype=float)
-    trial_ids = (positions == 1).cumsum()
-    for tid in range(1, trial_ids.max() + 1):
-        idx = np.where(trial_ids == tid)[0]
+    df = metadata.sort_values(['run', 'trial', 'onset']).copy()
+    n = len(df)
+    feat = np.zeros(n, dtype=float)
+    for _, group in df.groupby(['run', 'trial']):
+        idx = group.index
         if len(idx) == 0:
             continue
-        max_pos_in_trial = positions[idx].max()
-        if max_pos_in_trial > 1:
-            feat[idx] = (positions[idx] - 1) / (max_pos_in_trial - 1)
+        pos = group['position'].values
+        max_pos = pos.max()
+        if max_pos > 1:
+            feat[idx] = (pos - 1) / (max_pos - 1)
         else:
             feat[idx] = 0.0
 
@@ -143,7 +146,7 @@ def build_parametric_color_position_rdms(
         green_retention_weights = np.linspace(0, 1, 11).tolist()
     rdms = {}
     for alpha in green_retention_weights:
-        key = f'parametric_color_pos_alpha_{alpha:.2f}'
+        key = f'M5_parametric_color_pos_alpha_{alpha:.2f}'
         rdms[key] = build_parametric_color_position_rdm(metadata, alpha)
     return rdms
 
@@ -153,44 +156,48 @@ def build_chunking_model(metadata: pd.DataFrame, chunk_pattern: Optional[List[in
     M6: 自发组块化模型
     -黑色按配置文件中的chunking组块规则分组赋值（块内相同）
     -绿色=-1（独立废弃标签）。
-    -记忆负荷根据metadata['load']
     -归一化
     """
-    positions = metadata['position'].copy()
-    feat = np.zeros(len(positions))
+    df = metadata.sort_values(['run', 'trial',  'position']).copy()
+    n = len(df)
+    feat = np.zeros(n, dtype=float)
 
-    for (_, _), group in metadata.groupby(['run', 'trial']):
 
+    for _, group in df.groupby(['run', 'trial']):
         idx = group.index
-        black_mask = group['color'] == 'black'
-        black_indices = idx[black_mask]
-        green_indices = idx[~black_mask]
-
-        feat[green_indices] = -1
-
-        group_sizes = iter(chunk_pattern)
-        current_group_capacity = next(group_sizes, None)
+        if len(idx) == 0:
+            continue
+        colors = group['color'].values
+        black_indices = [i for i, c in enumerate(colors) if c == 'black']
+        for i, c in enumerate(colors):
+            if c != 'black':
+                feat[idx[i]] = -1.0
+        n_black = len(black_indices)
+        if n_black == 0:
+            continue
         group_id = 1
         count_in_group = 0
+        pattern_iter = iter(chunk_pattern)
+        current_capacity = next(pattern_iter, None)
 
-        for orig_idx in black_indices:
-            if current_group_capacity is None:
-                feat[orig_idx] = group_id
+        for j, original_idx in enumerate(black_indices):
+            if current_capacity is None:
+                feat[idx[original_idx]] = group_id
                 continue
-            if count_in_group >= current_group_capacity:
+            if count_in_group >= current_capacity:
                 try:
-                    current_group_capacity = next(group_sizes)
+                    current_capacity = next(pattern_iter)
                     group_id += 1
                     count_in_group = 0
                 except StopIteration:
-                    current_group_capacity = None
+                    current_capacity = None
                     group_id += 1
-                    feat[orig_idx] = group_id
-                    continue
-            feat[orig_idx] = group_id
+            feat[idx[original_idx]] = group_id
             count_in_group += 1
 
     return _features_to_rdm(feat.reshape(-1, 1), metric='euclidean')
+
+
 
 def build_structure_model(metadata: pd.DataFrame) -> np.ndarray:
     """
@@ -218,8 +225,8 @@ def build_content_model(
         else:
             idx = ord(row['letter'].upper()) - ord('A')
             if 0 <= idx < 26:
-                features[i, idx] = lambda_param
-            features[i, 26] = 1.0 - lambda_param
+                features[i, idx] = 1.0 - lambda_param
+            features[i, 26] = lambda_param
     return _features_to_rdm(features, metric='correlation')
 
 
@@ -275,7 +282,7 @@ def generate_all_models(
     rdms['M6_chunking'] = build_chunking_model(metadata, chunk_pattern)
     # M7
     rdms['M7_structure'] = build_structure_model(metadata)
-    rdms['M7_content'] = build_content_model(metadata, lam=1.0)
+    rdms['M7_content'] = build_content_model(metadata, 1.0)
     # M8
     for alpha in structure_weights:
         for lam in distractor_collapse_levels:
