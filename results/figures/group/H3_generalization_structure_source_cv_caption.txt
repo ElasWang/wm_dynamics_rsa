@@ -1,0 +1,5 @@
+ Group-average time-by-time generalization matrix during H3.
+N = 21 subjects. Entry (i, j) = Spearman ρ between the neural RDM at training time i and test time j.
+Green dashed box = encoding window (200–400 ms, X-axis).
+Blue dashed box = maintenance window (500–700 ms, Y-axis).
+Black solid box = cross-time (encoding × maintenance) region of interest.

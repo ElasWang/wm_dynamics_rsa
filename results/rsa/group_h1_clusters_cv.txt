@@ -1,0 +1,57 @@
+========== H1 群体水平结果 ==========
+
+对比: target_priority_model_vs_visual_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: target_priority_model_vs_visual_model
+显著簇数量: 2
+簇 1: p=0.0318, time=0.0-68.0 ms, n=18, direction=A > B, mean_delta_z=0.2741, interpretable=True
+簇 2: p=0.0002, time=80.0-708.0 ms, n=158, direction=A > B, mean_delta_z=0.3848, interpretable=True
+
+
+对比: target_priority_model_vs_binary_color_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: target_priority_model_vs_binary_color_model
+显著簇数量: 2
+簇 1: p=0.0034, time=232.0-352.0 ms, n=31, direction=A > B, mean_delta_z=0.1669, interpretable=True
+簇 2: p=0.0324, time=384.0-444.0 ms, n=16, direction=A > B, mean_delta_z=0.2100, interpretable=True
+
+
+对比: gradient_model_vs_visual_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: gradient_model_vs_visual_model
+显著簇数量: 3
+簇 1: p=0.0276, time=0.0-68.0 ms, n=18, direction=A > B, mean_delta_z=0.3295, interpretable=True
+簇 2: p=0.0002, time=76.0-736.0 ms, n=166, direction=A > B, mean_delta_z=0.4257, interpretable=True
+簇 3: p=0.0436, time=744.0-800.0 ms, n=15, direction=A > B, mean_delta_z=0.3115, interpretable=True
+
+
+对比: binary_adjacency_model_vs_visual_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: binary_adjacency_model_vs_visual_model
+显著簇数量: 3
+簇 1: p=0.0254, time=0.0-68.0 ms, n=18, direction=A > B, mean_delta_z=0.2620, interpretable=True
+簇 2: p=0.0002, time=80.0-708.0 ms, n=158, direction=A > B, mean_delta_z=0.3125, interpretable=True
+簇 3: p=0.0486, time=748.0-800.0 ms, n=14, direction=A > B, mean_delta_z=0.2324, interpretable=True
+
+
+对比: reciprocal_adjacency_model_vs_visual_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: reciprocal_adjacency_model_vs_visual_model
+显著簇数量: 3
+簇 1: p=0.0282, time=0.0-68.0 ms, n=18, direction=A > B, mean_delta_z=0.3495, interpretable=True
+簇 2: p=0.0002, time=76.0-736.0 ms, n=166, direction=A > B, mean_delta_z=0.4450, interpretable=True
+簇 3: p=0.0436, time=744.0-800.0 ms, n=15, direction=A > B, mean_delta_z=0.3207, interpretable=True
+
+
+对比: gradient_model_vs_timestamp_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: gradient_model_vs_timestamp_model
+显著簇: 无
+
+======================================

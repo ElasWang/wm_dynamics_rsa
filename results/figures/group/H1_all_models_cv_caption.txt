@@ -1,0 +1,5 @@
+ Model-wise sliding-window RSA time course (H1).
+N = 21 subjects. Curves = group mean Spearman rho after Fisher-z;
+shaded bands = +/-1 SEM (also computed in Fisher-z space, inverse-transformed).
+Vertical dotted line marks stimulus onset (0 ms); horizontal dashed line = rho = 0.
+Time axis restricted to -100-800 ms.

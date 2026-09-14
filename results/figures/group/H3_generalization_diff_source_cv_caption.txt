@@ -1,0 +1,4 @@
+Structure-specific generalization (group average).
+N = 21 subjects. Each entry is the difference between the structure-model generalization matrix and the average across control models (visual, content, color).
+Model generalization matrix = ρ_model[t_i] * ρ_model[t_j], where ρ_model[t] is the Spearman correlation between the model RDM and the neural RDM at time t.
+Green / blue / black boxes mark the encoding, maintenance and cross-time regions of interest respectively.

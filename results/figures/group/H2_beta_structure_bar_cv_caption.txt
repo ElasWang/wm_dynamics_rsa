@@ -1,0 +1,4 @@
+Standardized regression coefficient (β) of the structure model in the full H2 model.
+Bar = group mean (N=1); error bar = ±1 SEM across subjects.
+Dashed horizontal line = β = 0.
+Asterisks denote one-sample t-test against 0: * p<.05, ** p<.01, *** p<.001.

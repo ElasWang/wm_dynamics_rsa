@@ -1,0 +1,4 @@
+ Correlation between the Structure Stability Index (SSI) and residual response time across subjects.
+N = 21 subjects. Each dot = one subject.
+Red line = OLS regression; shaded band = 95% confidence interval.
+Spearman ρ = -0.155, one-sided p = 0.252 (predicted direction: higher SSI → shorter residual RT).

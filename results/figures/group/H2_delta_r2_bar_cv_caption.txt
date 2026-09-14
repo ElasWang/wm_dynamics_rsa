@@ -1,0 +1,4 @@
+Cross-validated R² gain of the full H2 model over the reduced model (with vs. without the structure term).
+Bar = group mean; error bar = ±1 SEM across subjects.
+Dashed horizontal line = 0 (no gain).
+Asterisks denote one-sample t-test against 0: * p<.05, ** p<.01, *** p<.001.
