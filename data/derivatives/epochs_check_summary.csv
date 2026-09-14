@@ -1,0 +1,2 @@
+file,status,errors,n_epochs,n_chans,n_times,sfreq,tmin,tmax,has_meta,meta_missing,positions,color_counts,dropped,kept,max_amplitude_uV
+sub-001_coding_epo.fif,OK,"['Position values [1, 2, 3, 4, 5, 6, 7, 8, 9] (expected 1~8)', 'Signal amplitude 10.0 µV (abnormal)']",900,71,251,250.0,-0.2,0.8,True,None,"[1, 2, 3, 4, 5, 6, 7, 8, 9]","{'black': 600, 'green': 300}",0,900,9.958559865776314

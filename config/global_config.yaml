@@ -9,34 +9,70 @@ project:
 paths:
   bids_root: "./data/raw"
   deriv_root: "./data/derivatives"
+  all_trials: "/data/behavior"
   visual_similarity_root: "./data/visual_similarity"
-  model_rdm_root: "./result/rdms/model"
-  neural_rdm_root: "./result/rdms/neural"
-  null_distributions: "./result/rdms/null_distributions"
-  null_dir : "./result/rdms/null_dir"
+  model_rdm_root: "./results/rdms/model"
+  neural_rdm_root: "./results/rdms/neural"
+  null : "./results/null"
+  rsa_result : "./results/rsa"
+  figures_result: "./results/figures"
+  figures_debug: './results/figures/debug'
+  figures_group: './results/figures/group'
+  figures: './results/figures'
+  split_half_qc_path: 'results/qc/split_half_qc.csv'
+
 # eeg数据预处理参数
 preprocessing:
   resample_sfreq: 250        # 统一采样率 (Hz)
-  filter_low: 0.5            # 高通截止频率 (Hz)
-  filter_high: 40.0          # 低通截止频率 (Hz)
-  ica_n_components: 30       # ICA 分解成分数
-  eog_threshold: 2.5         # 眼电成分检测阈值
+  filter_low: 0.1           # 高通截止频率 (Hz)
+  filter_high: 50          # 低通截止频率 (Hz)
   epoch_tmin: -0.2           # 刺激前基线起始 (秒)
   epoch_tmax: 0.8            # 刺激后结束 (秒)
+  baseline: [-0.2, 0.0]      #基线矫正用刺激前-200cm到0cm的平均值做基线
+  whiten: false #使用噪声归一化后的数据计算 RDM
+  reject:
+    eeg: 100     #剔除（100µV）
+  asr:
+    flatline_criterion: 5
+    channel_criterion: 0.8
+    line_noise_criterion: 4
+    burst_criterion: 20
+    highpass: 'off'
+  ica_algorithm: 'infomax'
+  ica_extended: true
+  ica_pca_n_components: 0.99  # 自动
+  iclabel_threshold: 0.8
+  interpolation_method: 'spherical'
 
 # RSA 分析参数
 rsa:
   # 时间窗口参数
-  temporal_window: 0.10        # 窗口宽度 (秒)
+  temporal_window: 0.025       # 窗口宽度 (秒)
   temporal_step: 0.02          # 滑动步长 (秒)
   spatial_radius: 0.04         # Searchlight 半径 (米)
+  dist_metric: "correlation"   # 神经RDM距离 (correlation / euclidean)
+  n_folds: 1                   # >1 表示使用交叉验证，1 直接平均
+  n_jobs: 1                    #rdm_epochs 进行并行计算
+  excluded_subjects: ['022', '023']  #被试幅值 0.2~0.4 µV，数据报废直接排除
 
-  # 距离度量选择
-  neural_metric: "correlation" # 神经RDM距离 (correlation / euclidean)
-
+  tmin: -0.2                # 分析起始时间（建议 -0.1 或 0.0，排除滤波振铃）
+  tmax: 0.8                 # 分析结束时间
+  h2_window: [0.3, 0.5]
+  h3_encoding: [0.25, 0.35]   # 根据 H1 结果调整为实际显著峰值
+  h3_maintenance: [0.45, 0.65]  # 保持 100ms 间隔，整体平移
+  train_indices: [200, 500] #训练窗口（编码期）
+  test_indices: [600, 800] #测试窗口（维持期）
+  pattern_normalization: null
+  n_perm: 5000 #置换检验
+  min_split_half: 0.05
+  stat_tmin: 0.0
+  stat_tmax: 800.0
+  min_cluster_points: 3
+  correct_pairwise_fdr: false
+  folds: 5 #将所有 trial 随机分成 5 折
   statistics:
     # 置换检验配置
-    n_permutations: 1000       # 打乱基线的置换次数（调试时可改为 100）
+    n_permutations: 10       # 打乱基线的置换次数（调试时可改为 100）
     random_state: 42           # 固定随机种子，确保结果可复现
 
     # 聚类置换检验
@@ -54,27 +90,17 @@ rnn:
   n_epochs: 200
   batch_size: 32
 
-# 模型5：参数化颜色-位置权衡模型
-parametric_color_position:
-  # 绿色干扰项的“神经保留权重”扫描范围
-  # 0.0 = 完全抑制（绿色被彻底抹除）
-  # 0.5 = 标签化（保留存在感，剥夺位置权）
-  # 1.0 = 完全保留（无视颜色标签）
-  green_retention_weights: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-
-# 模型8：动态加权混合模型
-structure_content_mixture:
-  # 结构权重 α：
-  # 0.0 = 纯内容（只看字母是什么）
-  # 0.5 = 均衡（结构与内容同等重要）
-  # 1.0 = 纯结构（只看位置在哪里）
+model_rdm:
   structure_weights: [0.0, 0.3, 0.5, 0.7, 1.0]
-  # 干扰项坍缩程度 λ：控制绿色字母的身份信息被保留多少
-  # 0.0 = 绿色完全保留字母身份（等于无视颜色）
-  # 0.5 = 绿色部分坍缩（既有身份痕迹，又有干扰标签）
-  # 1.0 = 绿色完全坍缩为干扰项（纯标签）
   distractor_collapse_levels: [0.0, 0.5, 1.0]
-# 模型6：组块模型
-chunk_pattern:
-  # 黑色字母分组规则
-  pattern: [2, 2, 3, 3]
+  chunking_pattern:
+    - [ 4,4 ]
+    - [ 2,3,3 ]
+    - [ 2,4,2 ]
+    - [ 3,2,3 ]
+    - [ 3,3,2 ]
+    - [ 4,2,2 ]
+    - [ 2,2,2,2 ]
+  content_lambda_param: 1
+
+

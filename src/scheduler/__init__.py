@@ -1,4 +1,4 @@
-# src/scheduler/__init__.py
+
 from .executor import run_pipeline_by_name, run_all_pipelines
 from .registry import get_pipeline_registry
 from .utils import load_config, run_download, list_subjects

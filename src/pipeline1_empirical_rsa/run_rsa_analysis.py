@@ -1,28 +1,24 @@
-"""
-工程一：RSA分析总入口
-"""
+
 import argparse
-import gc
 import logging
 import os
 import sys
+from pathlib import Path
 
 import mne
-import numpy as np
-import pandas as pd
 
 from config import CONFIG
-from src.shared_utils.metadata_util import compute_positions
-from src.pipeline1_empirical_rsa.core.generate_all_models_engine import get_all_cached_objects
-
-
-# from src.pipeline1_empirical_rsa.core.sensor_rsa_engine import run_sensor_rsa
-# from src.pipeline1_empirical_rsa.core.source_rsa_engine import run_source_rsa
-# from src.pipeline1_empirical_rsa.core.source_localization import compute_source_estimates
+from src.pipeline1_empirical_rsa.core.h1_analysis import run_subject_level as h1_subject
+from src.pipeline1_empirical_rsa.core.h2_analysis import run_subject_level as h2_subject
+from src.pipeline1_empirical_rsa.core.h3_analysis import run_subject_level as h3_subject
+from src.pipeline1_empirical_rsa.core.sensor_rsa_engine import cache_sensor_rdms, cache_cv_condition_rdms, \
+    cache_cv_sequence_rdms
+from src.pipeline1_empirical_rsa.core.source_rsa_engine import cache_cv_source_condition_rdms
+from src.shared_utils.metadata_util import filter_epochs
+from src.shared_utils.models.resolve_model_instances import resolve_model_instances, resolve_condition_model_instances
 
 
 def main():
-    # ---- 子进程日志初始化 ----
     log_level = os.getenv("LOG_LEVEL", "INFO")
     logging.basicConfig(
         level=getattr(logging, log_level.upper(), logging.INFO),
@@ -31,67 +27,181 @@ def main():
     )
     logger = logging.getLogger(__name__)
 
-    # ---- 获取配置文件中的数据存放路径----
     paths_cfg = CONFIG.get('paths', {})
-    deriv_root = paths_cfg.get('deriv_root', 'data/derivatives')
-    visual_similarity_root = paths_cfg.get('visual_similarity_root', 'data/visual_similarity')
-    cache_dir = paths_cfg.get('model_rdm_root', './result/rdms/model')
-    null_dir = paths_cfg.get('model_rdm_root', './result/rdms/model')
+    deriv_root = Path(paths_cfg.get('deriv_root', 'data/derivatives'))
+    result_root = Path(paths_cfg.get('rsa_result'))
 
-    # ---- 获取配置文件中的理论模型参数 ----
-    structure_weights = CONFIG.get('structure_content_mixture', {}).get('structure_weights')
-    distractor_collapse_levels = CONFIG.get('structure_content_mixture', {}).get('distractor_collapse_levels')
-    green_retention_weights = CONFIG.get('parametric_color_position', {}).get('green_retention_weights')
-    chunk_pattern = CONFIG.get('chunk_pattern', {}).get('pattern')
-    n_permutations = CONFIG.get('statistics', {}).get('n_permutations')
-    # ---- 解析命令行 ----
-    parser = argparse.ArgumentParser(description="工程一：RSA分析")
+    parser = argparse.ArgumentParser(description="Study 1：RSA分析")
     parser.add_argument("--subject", required=True)
     parser.add_argument("--stage", choices=['sensor', 'source', 'all'], default='sensor',
                         help="sensor: 仅传感器RSA | source: 仅源空间RSA | all: 串行执行（不推荐）")
+    parser.add_argument("--force", action="store_true",
+                        help="强制重新计算所有缓存对象")
     args = parser.parse_args()
+    subject_id = args.subject
+    logger.info(f"加载被试 {subject_id} 的数据...")
+    epochs = mne.read_epochs(f"{deriv_root}/sub-{subject_id}_coding_epo.fif", preload=True)
 
-    # ----加载原始数据 ----
-    logger.info(f"加载被试 {args.subject} 的数据...")
-    epochs = mne.read_epochs(f"{deriv_root}/sub-{args.subject}_coding_epo.fif", preload=True)
-    metadata = pd.read_csv(f"{deriv_root}/sub-{args.subject}_metadata.csv")
+    n_original = len(epochs.drop_log)
+    n_kept = len(epochs)
+    drop_ratio = 1.0 - (n_kept / n_original)
+    if drop_ratio > 0.25:
+        logger.warning(f"被试 {args.subject} 剔除比例 {drop_ratio:.1%} > 25%，排除此被试")
+        with open('excluded_subjects.txt', 'a') as f:
+            f.write(f"{args.subject}\n")
+        sys.exit(0)
+    else:
+        logger.info(f"试次剔除比例: {drop_ratio:.1%} (保留 {n_kept}/{n_original})")
 
-    # ---- 构建理论模型 ----
-    logger.info("构建理论模型 RDM...")
-    metadata['position'] = compute_positions(metadata)
-    model_vectors, mask, null_vectors = get_all_cached_objects(
-        subject_id=args.subject,
-        metadata=metadata,
-        visual_similarity_root=visual_similarity_root,
-        cache_dir=cache_dir,
-        null_dir=null_dir,
-        structure_weights=structure_weights,
-        distractor_collapse_levels=distractor_collapse_levels,
-        green_retention_weights=green_retention_weights,
-        chunk_pattern=chunk_pattern,
-        n_permutations=n_permutations,
-        force=args.force,
+    epochs = filter_epochs(epochs)
+    debug_dir = Path(paths_cfg.get('figures_debug')) / f'sub-{args.subject}'
+    debug_dir.mkdir(parents=True, exist_ok=True)
+
+    # ---- 获取理论模型 RDM ----
+    logger.info("获取理论模型 event-level RDM...")
+    model_rdms = resolve_model_instances(subject_id=subject_id)
+
+    logger.info("获取理论模型 cv-level RDM...")
+    model_rdms_cond = resolve_condition_model_instances(subject_id=subject_id)
+
+    # plot_debug_for_model_dict(model_rdms_cond, 'cond', debug_dir)
+
+    debug_dir = Path('figures/debug') / f'sub-{args.subject}'
+    debug_dir.mkdir(parents=True, exist_ok=True)
+
+    # ---- 获取神经 RDM ----
+    logger.info("获取神经 event-level RDM...")
+    neural_rdms, times_ms, time_indices = cache_sensor_rdms(
+        subject_id,
+        epochs,
+        overwrite=args.force
+    )
+    logger.info("获取神经 cv-level RDM...")
+    cv_rdms, cv_times_ms, cv_time_indices = cache_cv_condition_rdms(
+        subject_id=subject_id,
+        epochs=epochs,
+        condition_col='position',
+        n_repeats=10,
+        overwrite=args.force
+    )
+    logger.info("获取神经 cv-sequence-level RDM...")
+    cv_sequence_rdms, cv_sequence_times_ms, cv_sequence_time_indices = cache_cv_sequence_rdms(
+        subject_id=subject_id,
+        epochs=epochs,
+        overwrite=args.force
+    )
+    logger.info("获取神经 cv_source-level RDM...")
+    cv_source_rdms, cv_source_times_ms, cv_source_time_indices = cache_cv_source_condition_rdms(
+        subject_id=subject_id,
+        epochs=epochs,
+        tmin=-0.2, tmax=0.8,
+        overwrite=args.force
     )
 
-    # ---- 执行传感器RSA ----
-    if args.stage in ['sensor', 'all']:
-        logger.info(">>> 执行传感器水平 RSA <<<")
-        # results_sensor = run_sensor_rsa(epochs, model_vectors, CONFIG)
-        # np.save(f"results/sensor_rsa/sub-{args.subject}_sensor.npy", results_sensor)
-        logger.info("传感器RSA完成，结果已保存。")
-        if args.stage == 'all':
-            # del results_sensor
-            gc.collect()
+    # ---- 运行 H1 分析 ----
+    logger.info("运行 H1 event-level ...")
+    h1_subject(
+        subject_id=subject_id,
+        model_rdms=model_rdms,
+        neural_rdms=neural_rdms,
+        result_root=result_root,
+        times_ms=times_ms,
+        time_indices=time_indices,
+        suffix='_event',
+        overwrite=args.force,
+    )
+    logger.info("运行 H1 cv-level ...")
+    h1_subject(
+        subject_id=subject_id,
+        model_rdms=model_rdms_cond,
+        neural_rdms=cv_rdms,
+        result_root=result_root,
+        times_ms=cv_times_ms,
+        time_indices=cv_time_indices,
+        suffix='_cv',
+        overwrite=args.force,
+    )
+    logger.info("运行 H1 cv_source-level  ...")
+    h1_subject(
+        subject_id=subject_id,
+        model_rdms=model_rdms_cond,
+        neural_rdms=cv_source_rdms,
+        result_root=result_root,
+        times_ms=cv_source_times_ms,
+        time_indices=cv_source_time_indices,
+        suffix='_source_cv',
+        overwrite=args.force,
+    )
 
-    # ---- 执行源空间RSA ----
-    if args.stage in ['source', 'all']:
-        logger.info(">>> 执行源空间 RSA <<<")
-        # stcs = compute_source_estimates(epochs, subject_id=args.subject)
-        # results_source = run_source_rsa(stcs, model_vectors, CONFIG)
-        # np.save(f"results/source_rsa/sub-{args.subject}_source.npy", results_source)
-        logger.info("源空间RSA完成，结果已保存。")
+    logger.info("运行 H2 cv-level ...")
+    h2_subject(
+        suffix='_cv',
+        subject_id=subject_id,
+        neural_rdms_dict=cv_rdms,
+        model_rdms_dict=model_rdms_cond,
+        time_indices=cv_time_indices,
+        result_root=result_root,
+        structure_model_name='target_priority_model',
+        overwrite=args.force,
+    )
+    logger.info("运行 H2 event-level ...")
+    h2_subject(
+        suffix='_event',
+        subject_id=subject_id,
+        neural_rdms_dict=neural_rdms,
+        model_rdms_dict=model_rdms,
+        time_indices=time_indices,
+        result_root=result_root,
+        structure_model_name='target_priority_model',
+        overwrite=args.force,
+    )
+    logger.info("运行 H2 cv-source-level ...")
+    h2_subject(
+        subject_id=subject_id,
+        neural_rdms_dict=cv_source_rdms,
+        model_rdms_dict=model_rdms_cond,
+        time_indices=cv_source_time_indices,
+        result_root=result_root,
+        suffix='_source_cv',
+        structure_model_name='target_priority_model',
+        overwrite=args.force,
+    )
+    # ---- 运行 H3 分析 ----
+    logger.info("运行 H3 event-level ...")
+    h3_subject(
+        suffix='_event',
+        subject_id=subject_id,
+        model_rdms=model_rdms,
+        neural_rdms=neural_rdms,
+        result_root=result_root,
+        times_ms=times_ms,
+        structure_model_name='target_priority_model',
+        overwrite=args.force,
+    )
+    logger.info("运行 H3 cv-level ...")
+    h3_subject(
+        suffix='_cv',
+        subject_id=subject_id,
+        model_rdms=model_rdms_cond,
+        neural_rdms=cv_rdms,
+        result_root=result_root,
+        times_ms=cv_times_ms,
+        structure_model_name='target_priority_model',
+        overwrite=args.force,
+    )
+    logger.info("运行 H3 cv-source-level ...")
+    h3_subject(
+        suffix='_source_cv',
+        subject_id=subject_id,
+        model_rdms=model_rdms_cond,
+        neural_rdms=cv_source_rdms,
+        result_root=result_root,
+        times_ms=cv_source_times_ms,
+        structure_model_name='target_priority_model',
+        overwrite=args.force,
+    )
 
-    logger.info(f"✅ 所有指定分析阶段完成: {args.stage}")
+    logger.info(f" 被试 {subject_id} 单被试计算完成")
 
 
 if __name__ == "__main__":
