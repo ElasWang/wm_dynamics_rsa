@@ -3,6 +3,7 @@
 > **Temporal Dynamics of Sequential Representations in Working Memory:  EEG-RSA Analysis**
 
 邮箱：ElasWangLY@163.com
+GitHub：https://github.com/ElasWang/wm_dynamics_rsa
 
 基于公开脑电数据 **Sternberg Working Memory (OpenNeuro ds004117)**，独立完成预处理、RSA 建模、H1/H2/H3 统计与源空间验证，
 研究大脑在工作记忆编码与维持的不同时间阶段，如何动态地分离、表征并重构序列结构与项目内容两种信息维度，并验证这种表征的行为相关性。
