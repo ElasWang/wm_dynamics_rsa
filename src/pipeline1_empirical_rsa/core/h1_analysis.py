@@ -2,7 +2,6 @@
 import logging
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from mne.stats import permutation_cluster_1samp_test

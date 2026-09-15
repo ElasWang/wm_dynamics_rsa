@@ -31,30 +31,6 @@ project_root = Path(__file__).resolve().parents[3]
 os.chdir(project_root)
 
 
-def _fit_ridge_group_cv(X, y, groups, n_inner_folds=4):
-    unique_groups = np.unique(groups)
-    if len(unique_groups) < 2:
-        raise ValueError(f"训练数据中 sequence 数量不足: {len(unique_groups)}")
-    n_splits = min(n_inner_folds, len(unique_groups))
-    inner_cv = GroupKFold(n_splits=n_splits)
-    search = GridSearchCV(
-        estimator=Ridge(),
-        param_grid={"alpha": [0.01, 0.1, 1.0, 10.0, 100.0]},
-        scoring="r2",
-        cv=inner_cv.split(X, y, groups),
-        n_jobs=-1,
-        refit=True,
-    )
-    search.fit(X, y)
-    return search.best_estimator_
-
-
-def _get_h2_model_rdm(model_rdms_dict, model_name):
-    if model_name not in model_rdms_dict:
-        raise KeyError(f"缺少 H2 模型: {model_name}")
-    model_rdm = np.asarray(model_rdms_dict[model_name], dtype=float)
-    return model_rdm
-
 def run_subject_level(
     suffix,
     subject_id: str,
@@ -77,8 +53,6 @@ def run_subject_level(
     rdms = [neural_rdms_dict[t] for t in time_indices if t in neural_rdms_dict]
     if not rdms:
         raise ValueError(f"被试 {subject_id} 在指定时间窗口没有可用 RDM")
-    first_rdm = np.asarray(rdms[0])
-
     model_specs = {
         'M1': ['content_model_content_lambda_param_1'],
         'M2': ['content_model_content_lambda_param_1', 'visual_model'],
@@ -102,7 +76,6 @@ def run_subject_level(
     ]
     neural_rdm = np.mean(rdms, axis=0)
     y_vec = extract_upper_triangular(neural_rdm)
-    n_samples = y_vec.shape[0]
     model_vecs = {}
     for name in base_model_names:
         m_rdm = _get_h2_model_rdm(model_rdms_dict, name)
@@ -209,10 +182,6 @@ def run_subject_level(
     return save_dict
 
 
-
-h2_subject = run_subject_level
-
-
 def run_group_level(
     subject_ids: list,
     result_root: str = 'results',
@@ -236,7 +205,6 @@ def run_group_level(
             logger.warning(f"被试 {sid} 的H2结果不存在，跳过")
             continue
         data = np.load(fpath, allow_pickle=True)
-        analysis_type = str(data.get('analysis_type', 'condition_level'))
 
         m1 = float(np.asarray(data['r2_m1']).squeeze())
         m2 = float(np.asarray(data['r2_m2']).squeeze())
@@ -458,3 +426,28 @@ def run_sensitivity_analysis(
         suffix=suffix,
         structure_model_name=alternative_model,
     )
+
+
+def _fit_ridge_group_cv(X, y, groups, n_inner_folds=4):
+    unique_groups = np.unique(groups)
+    if len(unique_groups) < 2:
+        raise ValueError(f"训练数据中 sequence 数量不足: {len(unique_groups)}")
+    n_splits = min(n_inner_folds, len(unique_groups))
+    inner_cv = GroupKFold(n_splits=n_splits)
+    search = GridSearchCV(
+        estimator=Ridge(),
+        param_grid={"alpha": [0.01, 0.1, 1.0, 10.0, 100.0]},
+        scoring="r2",
+        cv=inner_cv.split(X, y, groups),
+        n_jobs=-1,
+        refit=True,
+    )
+    search.fit(X, y)
+    return search.best_estimator_
+
+
+def _get_h2_model_rdm(model_rdms_dict, model_name):
+    if model_name not in model_rdms_dict:
+        raise KeyError(f"缺少 H2 模型: {model_name}")
+    model_rdm = np.asarray(model_rdms_dict[model_name], dtype=float)
+    return model_rdm
