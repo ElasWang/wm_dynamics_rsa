@@ -320,7 +320,18 @@ python run.py
 ### 9.4 整体计划
 
 ```
-Study 2（模拟验证 RSA 方法） → Study 1（实证：结构/内容表征动态） → Study 3（RNN 机制复现）
-         ↑                      ↓                              ↑
-         └──────────── 神经 RDM × RNN RDM 跨尺度相关 + 消融 ───┘
+Study 2（模拟验证 RSA 方法） → Study 1（实证：结构/内容表征动态）    → Study 3（RNN 机制复现）
+         ↑                                ↓                           ↑
+         └────────────  神经 RDM × RNN RDM 跨尺度相关 + 消融  ───────────┘
+```
+```mermaid
+flowchart TD
+    A[神经 RDM × RNN RDM 跨尺度相关 + 消融 ] 
+    A --> B[Study 2（模拟验证 RSA 方法）]
+    [Study 1（实证：结构/内容表征动态）]C --> A
+    A --> D[Study 3（RNN 机制复现）]
+    B --> C
+    C --> D
+
+
 ```
