@@ -1,0 +1,51 @@
+========== H1 群体水平结果 ==========
+
+对比: target_priority_model_vs_visual_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: target_priority_model_vs_visual_model
+显著簇数量: 3
+簇 1: p=0.0296, time=152.0-224.0 ms, n=19, direction=A > B, mean_delta_z=0.0054, interpretable=True
+簇 2: p=0.0022, time=232.0-380.0 ms, n=38, direction=A > B, mean_delta_z=0.0176, interpretable=True
+簇 3: p=0.0012, time=604.0-800.0 ms, n=50, direction=A > B, mean_delta_z=0.0055, interpretable=True
+
+
+对比: target_priority_model_vs_binary_color_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: target_priority_model_vs_binary_color_model
+显著簇: 无
+
+
+对比: gradient_model_vs_visual_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: gradient_model_vs_visual_model
+显著簇数量: 2
+簇 1: p=0.0026, time=236.0-532.0 ms, n=75, direction=A > B, mean_delta_z=0.0113, interpretable=True
+簇 2: p=0.0090, time=612.0-800.0 ms, n=48, direction=A > B, mean_delta_z=0.0061, interpretable=True
+
+
+对比: binary_adjacency_model_vs_visual_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: binary_adjacency_model_vs_visual_model
+显著簇: 无
+
+
+对比: reciprocal_adjacency_model_vs_visual_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: reciprocal_adjacency_model_vs_visual_model
+显著簇数量: 2
+簇 1: p=0.0028, time=236.0-564.0 ms, n=83, direction=A > B, mean_delta_z=0.0110, interpretable=True
+簇 2: p=0.0084, time=608.0-800.0 ms, n=49, direction=A > B, mean_delta_z=0.0066, interpretable=True
+
+
+对比: gradient_model_vs_timestamp_model
+有效被试数: 21
+正式统计时间窗: 0.0-800.0 ms
+模型: gradient_model_vs_timestamp_model
+显著簇: 无
+
+======================================

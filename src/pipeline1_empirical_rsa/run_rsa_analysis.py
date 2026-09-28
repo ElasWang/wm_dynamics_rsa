@@ -141,7 +141,6 @@ def main():
         model_rdms_dict=model_rdms_cond,
         time_indices=cv_time_indices,
         result_root=result_root,
-        structure_model_name='target_priority_model',
         overwrite=args.force,
     )
     logger.info("运行 H2 event-level ...")
@@ -152,7 +151,6 @@ def main():
         model_rdms_dict=model_rdms,
         time_indices=time_indices,
         result_root=result_root,
-        structure_model_name='target_priority_model',
         overwrite=args.force,
     )
     logger.info("运行 H2 cv-source-level ...")
@@ -163,7 +161,6 @@ def main():
         time_indices=cv_source_time_indices,
         result_root=result_root,
         suffix='_source_cv',
-        structure_model_name='target_priority_model',
         overwrite=args.force,
     )
     # ---- 运行 H3 分析 ----

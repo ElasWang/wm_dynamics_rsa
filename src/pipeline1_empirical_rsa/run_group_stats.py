@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import traceback
 from pathlib import Path
 
 from config import CONFIG
@@ -34,22 +35,22 @@ def main():
             logger.error(f"H1 ({suffix}) 失败: {e}")
             h1_results[suffix] = []
 
-    logger.info("\n===== H2 群体统计 =====")
     for suffix in suffixes:
+        logger.info(f"\n===== H2 群体统计 (suffix={suffix}) =====")
         try:
             h2_results = h2_analysis.run_group_level(subject_ids=subject_ids, result_root=result_root,
-                suffix=suffix,structure_model_name='target_priority_model',
+                suffix=suffix,
                 save_fig_dir=figures_group,)
             if h2_results and h2_results['p_beta'] < 0.05:
                 logger.info(" H2 成立：结构模型具有显著独特贡献")
             else:
                 logger.info(" H2 未成立：未检测到显著独特贡献")
         except Exception as e:
-            logger.error(f"H2 群体统计失败: {e}")
+            logger.error("H2 群体统计失败:\n%s", traceback.format_exc())
 
-    logger.info("\n===== H3 群体统计 =====")
     # suffixes.append('_sequence_cv')
     for suffix in suffixes:
+        logger.info(f"\n===== H3 群体统计 (suffix={suffix}) =====")
         try:
             h3_results = h3_analysis.run_group_level(subject_ids=subject_ids,
                 result_root=str(result_root),suffix = suffix, save_fig_dir=figures_group,)

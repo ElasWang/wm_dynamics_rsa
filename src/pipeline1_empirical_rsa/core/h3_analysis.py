@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
-from scipy.stats import ttest_1samp, ttest_rel, spearmanr
+from scipy.stats import ttest_1samp, ttest_rel, spearmanr, chi2
 
 from config import CONFIG
 from src.shared_utils.models.registry import list_models_by_hypothesis
@@ -41,7 +41,6 @@ def run_subject_level(
     train_time_range = CONFIG.get('rsa', {}).get('train_indices', [200, 500])
     test_time_range = CONFIG.get('rsa', {}).get('test_indices', [600, 800])
 
-
     train_idx = time_window_to_indices(
         times_ms, train_time_range[0], train_time_range[1], valid_idx_set )
     test_idx = time_window_to_indices(
@@ -49,9 +48,11 @@ def run_subject_level(
     if not train_idx or not test_idx:
         raise ValueError(f"被试 {subject_id} 的编码期或维持期无有效时间点")
     gen_mat = compute_generalization_matrix(neural_rdms, train_idx, test_idx)
+
+
+
     first_rdm = neural_rdms[train_idx[0]]
     triu_idx = np.triu_indices_from(first_rdm, k=1)
-
     model_rdms = filter_instances_by_hypothesis(model_rdms, 'h3')
     struct_vec = model_rdms.get(structure_model_name)[triu_idx]
     struct_rhos = []
@@ -80,6 +81,16 @@ def run_subject_level(
     else:
         ssi = struct_mean
         logger.warning("没有控制模型，SSI 直接使用结构均值")
+    timestamp_model_name = 'timestamp_model'
+    timestamp_vec = model_rdms[timestamp_model_name][triu_idx]
+    G_struct = np.zeros((len(train_idx), len(test_idx)))
+    G_timestamp = np.zeros((len(train_idx), len(test_idx)))
+
+    for i, t_train in enumerate(train_idx):
+        neural_vec_train = neural_rdms[t_train][triu_idx]
+        G_struct[i, :] = [spearmanr(neural_vec_train, struct_vec)[0] for _ in test_idx]
+        if G_timestamp is not None:
+            G_timestamp[i, :] = [spearmanr(neural_vec_train, timestamp_vec)[0] for _ in test_idx]
     save_dict = {
         'gen_mat': gen_mat,
         'ssi': ssi,
@@ -88,6 +99,8 @@ def run_subject_level(
         'struct_rhos_by_time': np.array(struct_rhos),
         'train_indices': np.array(train_idx, dtype=int),
         'test_indices': np.array(test_idx, dtype=int),
+        'G_struct': G_struct,
+        'G_timestamp': G_timestamp,
     }
     if control_rhos:
         cnames = list(control_rhos.keys())
@@ -124,6 +137,8 @@ def _load_h3_result(file_path: Path) -> dict:
     test_times = np.asarray(data['test_times_ms'], dtype=float) if 'test_times_ms' in data else np.array([])
     struct_by_time = (data['struct_rhos_by_time'] if 'struct_rhos_by_time' in data
                       else data['struct_rhos'] if 'struct_rhos' in data else np.array([]))
+    G_struct = data['G_struct'] if 'G_struct' in data else None
+    G_timestamp = data['G_timestamp'] if 'G_timestamp' in data else None
     return {
         'gen_mat': data['gen_mat'],
         'ssi': float(data['ssi']),
@@ -136,6 +151,8 @@ def _load_h3_result(file_path: Path) -> dict:
         'test_indices': data['test_indices'].tolist() if 'test_indices' in data else [],
         'train_times_ms': train_times,
         'test_times_ms': test_times,
+        'G_struct': G_struct,
+        'G_timestamp': G_timestamp,
     }
 
 
@@ -274,7 +291,11 @@ def run_group_level(
         output_dir=save_fig_dir,
     )
     _save_group_report(stats, result_root, suffix)
-
+    # run_h3_control_analyses(
+    #     subject_ids=subject_ids,
+    #     result_root=result_root,
+    #     suffix=suffix,
+    # )
     return stats
 
 
@@ -544,3 +565,160 @@ def run_h3_figures(
         h3_behavior_scatter(suffix, ssi_arr, rt_arr, output_dir=output_dir)
     else:
         logger.info("未提供 behavior_df，跳过")
+
+def temporal_distance_matched_control(
+    all_results: List[dict],
+    train_times: np.ndarray,
+    test_times: np.ndarray,
+) -> dict:
+    valid_results = [r for r in all_results if r.get('G_struct') is not None and r.get('G_timestamp') is not None]
+    if len(valid_results) < 3:
+        logger.warning("有效被试不足，跳过 temporal-distance matched control")
+        return {}
+
+    n_sub = len(valid_results)
+    distances = np.abs(train_times[:, None] - test_times[None, :])
+    unique_d = np.unique(distances)
+    diff_d = np.zeros((n_sub, len(unique_d)))
+
+    for s, res in enumerate(valid_results):
+        G_struct = res['G_struct']
+        G_timestamp = res['G_timestamp']
+        for d_idx, d in enumerate(unique_d):
+            mask = distances == d
+            diff_d[s, d_idx] = np.mean(G_struct[mask]) - np.mean(G_timestamp[mask])
+
+    t_vals, p_vals = [], []
+    for d_idx in range(len(unique_d)):
+        t, p_two = ttest_1samp(diff_d[:, d_idx], 0)
+        p_one = p_two / 2 if t > 0 else 1 - p_two / 2
+        t_vals.append(t)
+        p_vals.append(p_one)
+
+    overall_diff = diff_d.mean(axis=1)
+    t_all, p_all_two = ttest_1samp(overall_diff, 0)
+    p_all_one = p_all_two / 2 if t_all > 0 else 1 - p_all_two / 2
+
+    result = {
+        'distances': unique_d,
+        'diff_mean': diff_d.mean(axis=0),
+        'diff_sem': diff_d.std(axis=0, ddof=1) / np.sqrt(n_sub),
+        't': np.array(t_vals),
+        'p_one': np.array(p_vals),
+        'overall_diff_mean': overall_diff.mean(),
+        'overall_t': t_all,
+        'overall_p_one': p_all_one,
+        'n_sub': n_sub,
+    }
+    logger.info(f"Temporal-distance matched control: overall diff={result['overall_diff_mean']:.4f}, t={t_all:.3f}, p_one={p_all_one:.4f}")
+    return result
+
+def structure_vs_timestamp_pairwise(
+    all_results: List[dict],
+    n_perm: int = 5000,
+) -> dict:
+    valid_results = [r for r in all_results if r.get('G_struct') is not None and r.get('G_timestamp') is not None]
+    if len(valid_results) < 3:
+        logger.warning("有效被试不足，跳过 structure vs timestamp pairwise")
+        return {}
+
+    n_sub = len(valid_results)
+    R_struct = np.array([np.mean(r['G_struct']) for r in valid_results])
+    R_timestamp = np.array([np.mean(r['G_timestamp']) for r in valid_results])
+
+    t_stat, p_two = ttest_rel(R_struct, R_timestamp)
+    p_one = p_two / 2 if t_stat > 0 else 1 - p_two / 2
+
+    G_struct_all = np.stack([r['G_struct'] for r in valid_results])
+    G_timestamp_all = np.stack([r['G_timestamp'] for r in valid_results])
+
+    t_matrix = np.zeros_like(G_struct_all[0])
+    for i in range(G_struct_all.shape[1]):
+        for j in range(G_struct_all.shape[2]):
+            t_matrix[i, j] = ttest_rel(G_struct_all[:, i, j], G_timestamp_all[:, i, j])[0]
+
+    threshold = 2.0
+    def find_clusters(mat):
+        clusters = []
+        visited = np.zeros_like(mat, dtype=bool)
+        for i in range(mat.shape[0]):
+            for j in range(mat.shape[1]):
+                if mat[i, j] > threshold and not visited[i, j]:
+                    stack = [(i, j)]
+                    cluster = []
+                    while stack:
+                        ci, cj = stack.pop()
+                        if visited[ci, cj] or mat[ci, cj] <= threshold:
+                            continue
+                        visited[ci, cj] = True
+                        cluster.append((ci, cj))
+                        for di, dj in [(-1,0),(1,0),(0,-1),(0,1)]:
+                            ni, nj = ci+di, cj+dj
+                            if 0 <= ni < mat.shape[0] and 0 <= nj < mat.shape[1]:
+                                stack.append((ni, nj))
+                    if cluster:
+                        clusters.append(cluster)
+        return clusters
+
+    observed_clusters = find_clusters(t_matrix)
+    observed_mass = [sum(t_matrix[i, j] for i, j in c) for c in observed_clusters]
+    max_observed = max(observed_mass) if observed_mass else 0
+
+    null_mass = []
+    for _ in range(n_perm):
+        signs = np.random.choice([-1, 1], size=n_sub)
+        t_perm = np.zeros_like(t_matrix)
+        for i in range(G_struct_all.shape[1]):
+            for j in range(G_struct_all.shape[2]):
+                t_perm[i, j] = ttest_rel(G_struct_all[:, i, j] * signs, G_timestamp_all[:, i, j] * signs)[0]
+        perm_clusters = find_clusters(t_perm)
+        perm_mass = [sum(t_perm[i, j] for i, j in c) for c in perm_clusters]
+        null_mass.append(max(perm_mass) if perm_mass else 0)
+
+    null_mass = np.array(null_mass)
+    p_cluster = np.mean(null_mass >= max_observed)
+
+    result = {
+        'R_struct_mean': R_struct.mean(),
+        'R_timestamp_mean': R_timestamp.mean(),
+        't_rel': t_stat,
+        'p_one': p_one,
+        'max_cluster_mass': max_observed,
+        'p_cluster': p_cluster,
+        'n_sub': n_sub,
+    }
+    logger.info(f"Structure vs Timestamp: t={t_stat:.3f}, p_one={p_one:.4f}, cluster p={p_cluster:.4f}")
+    return result
+
+def run_h3_control_analyses(
+    subject_ids: List[str],
+    result_root: str = 'results',
+    suffix: str = '',
+) -> dict:
+
+    all_results = []
+    for sid in subject_ids:
+        try:
+            res = load_h3_results(sid, result_root, suffix=suffix)
+            all_results.append(res)
+        except FileNotFoundError:
+            logger.warning(f"被试 {sid} H3 结果缺失，跳过")
+
+    if len(all_results) < 3:
+        logger.warning("有效被试不足，跳过 H3 控制分析")
+        return {}
+
+    train_times = all_results[0].get('train_times_ms')
+    test_times = all_results[0].get('test_times_ms')
+    if train_times is None or test_times is None or len(train_times) == 0:
+        logger.warning("缺少 train/test_times_ms，无法运行 temporal-distance matched control")
+        tdm_result = {}
+    else:
+        tdm_result = temporal_distance_matched_control(all_results, train_times, test_times)
+    pairwise_result = structure_vs_timestamp_pairwise(all_results)
+
+    control_results = {
+        'temporal_distance_matched': tdm_result,
+        'structure_vs_timestamp': pairwise_result,
+    }
+    return control_results
