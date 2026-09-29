@@ -132,7 +132,7 @@ flowchart TD
 - M1：Content（27 维字母身份独热）
 - M2：Content + Visual（字母形状混淆矩阵）
 - M3：Content + Visual + Task（二值颜色标签）
-- M4：Content + Visual + Task + Structure（TPR）
+- M4：Content + Visual + Task + Structure（TPR,Gradient）
 
 #### 2. 个体分析
 - 神经 RDM 提取上三角，作为因变量y，4 个模型 RDM 各提取上三角拼成设计矩阵X。
